@@ -13,12 +13,15 @@ from langchain_core.callbacks.manager import CallbackManagerForLLMRun, AsyncCall
 from langchain_core.tools import BaseTool
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from pydantic import Field, SecretStr
+from langchain_openai import ChatOpenAI
 import dashscope
 from dashscope import Generation
 from ..config.config_manager import token_tracker
 
 # 导入日志模块
 from tradingagents.utils.logging_manager import get_logger
+from ..default_config import DEFAULT_CONFIG
+
 logger = get_logger('agents')
 
 
@@ -124,9 +127,16 @@ class ChatDashScope(BaseChatModel):
         
         try:
             # 调用 DashScope API
-            response = Generation.call(**request_params)
-            
-            if response.status_code == 200:
+            # response = Generation.call(**request_params)
+            llm = ChatOpenAI(
+                base_url=DEFAULT_CONFIG.get("llm_base_url"),
+                model=DEFAULT_CONFIG.get("llm_model_name"),  # 需与vLLM加载的模型名一致
+                temperature=0.3,
+                max_tokens=20480,
+                api_key=DEFAULT_CONFIG.get("llm_api_key")
+            )
+            response = llm.invoke(dashscope_messages)
+            if response:
                 # 解析响应
                 output = response.output
                 message_content = output.choices[0].message.content

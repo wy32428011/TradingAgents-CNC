@@ -6,6 +6,7 @@ from dashscope import TextEmbedding
 import os
 import threading
 from typing import Dict, Optional
+from langchain_openai import OpenAIEmbeddings
 
 # 导入统一日志系统
 from tradingagents.utils.logging_init import get_logger
@@ -246,136 +247,146 @@ class FinancialSituationMemory:
 
     def get_embedding(self, text):
         """Get embedding for a text using the configured provider"""
-
+        print("[llm_provider]: " + self.llm_provider)
+        embed_base_url = self.config["embed_base_url"]
+        embed_model_name = self.config["embed_model_name"]
+        embed_api_key = self.config["embed_api_key"]
+        embeddings = OpenAIEmbeddings(base_url=embed_base_url,
+                                      model=embed_model_name,
+                                      api_key=embed_api_key)
+        # embeddings = OllamaEmbeddings(model="nomic-embed-text", base_url="http://192.168.60.146:11434/v1")
+        print("[embeddings]---->", embeddings)
+        embedding = embeddings.embed_query(text)
+        return embedding
         # 检查记忆功能是否被禁用
-        if self.client == "DISABLED":
-            # 内存功能已禁用，返回空向量
-            logger.debug(f"⚠️ 记忆功能已禁用，返回空向量")
-            return [0.0] * 1024  # 返回1024维的零向量
-
-        if (self.llm_provider == "dashscope" or
-            self.llm_provider == "alibaba" or
-            (self.llm_provider == "google" and self.client is None) or
-            (self.llm_provider == "deepseek" and self.client is None) or
-            (self.llm_provider == "openrouter" and self.client is None)):
-            # 使用阿里百炼的嵌入模型
-            try:
-                # 导入DashScope模块
-                import dashscope
-                from dashscope import TextEmbedding
-
-                # 检查DashScope API密钥是否可用
-                if not hasattr(dashscope, 'api_key') or not dashscope.api_key:
-                    logger.warning(f"⚠️ DashScope API密钥未设置，记忆功能降级")
-                    return [0.0] * 1024  # 返回空向量
-
-                # 尝试调用DashScope API
-                response = TextEmbedding.call(
-                    model=self.embedding,
-                    input=text
-                )
-
-                # 检查响应状态
-                if response.status_code == 200:
-                    # 成功获取embedding
-                    embedding = response.output['embeddings'][0]['embedding']
-                    logger.debug(f"✅ DashScope embedding成功，维度: {len(embedding)}")
-                    return embedding
-                else:
-                    # API返回错误状态码
-                    logger.error(f"❌ DashScope API错误: {response.code} - {response.message}")
-                    logger.warning(f"⚠️ 记忆功能降级，返回空向量")
-                    return [0.0] * 1024  # 返回空向量而不是抛出异常
-
-            except ImportError as e:
-                # dashscope包未安装
-                logger.error(f"❌ DashScope包未安装: {str(e)}")
-                logger.warning(f"⚠️ 记忆功能降级，返回空向量")
-                return [0.0] * 1024
-
-            except AttributeError as e:
-                # API调用方法不存在或参数错误
-                logger.error(f"❌ DashScope API调用错误: {str(e)}")
-                logger.warning(f"⚠️ 记忆功能降级，返回空向量")
-                return [0.0] * 1024
-
-            except ConnectionError as e:
-                # 网络连接错误
-                logger.error(f"❌ DashScope网络连接错误: {str(e)}")
-                logger.warning(f"⚠️ 记忆功能降级，返回空向量")
-                return [0.0] * 1024
-
-            except TimeoutError as e:
-                # 请求超时
-                logger.error(f"❌ DashScope请求超时: {str(e)}")
-                logger.warning(f"⚠️ 记忆功能降级，返回空向量")
-                return [0.0] * 1024
-
-            except KeyError as e:
-                # 响应格式错误
-                logger.error(f"❌ DashScope响应格式错误: {str(e)}")
-                logger.warning(f"⚠️ 记忆功能降级，返回空向量")
-                return [0.0] * 1024
-
-            except Exception as e:
-                # 其他所有异常
-                logger.error(f"❌ DashScope embedding未知异常: {str(e)}")
-                logger.warning(f"⚠️ 记忆功能降级，返回空向量")
-                return [0.0] * 1024  # 返回空向量而不是抛出异常
-        else:
-            # 使用OpenAI兼容的嵌入模型
-            if self.client is None:
-                logger.warning(f"⚠️ 嵌入客户端未初始化，返回空向量")
-                return [0.0] * 1024  # 返回空向量
-            elif self.client == "DISABLED":
-                # 内存功能已禁用，返回空向量
-                logger.debug(f"⚠️ 内存功能已禁用，返回空向量")
-                return [0.0] * 1024  # 返回1024维的零向量
-
-            # 尝试调用OpenAI兼容的embedding API
-            try:
-                response = self.client.embeddings.create(
-                    model=self.embedding,
-                    input=text
-                )
-                embedding = response.data[0].embedding
-                logger.debug(f"✅ OpenAI embedding成功，维度: {len(embedding)}")
-                return embedding
-
-            except AttributeError as e:
-                # API调用方法不存在
-                logger.error(f"❌ OpenAI API调用错误: {str(e)}")
-                logger.warning(f"⚠️ 记忆功能降级，返回空向量")
-                return [0.0] * 1024
-
-            except ConnectionError as e:
-                # 网络连接错误
-                logger.error(f"❌ OpenAI网络连接错误: {str(e)}")
-                logger.warning(f"⚠️ 记忆功能降级，返回空向量")
-                return [0.0] * 1024
-
-            except TimeoutError as e:
-                # 请求超时
-                logger.error(f"❌ OpenAI请求超时: {str(e)}")
-                logger.warning(f"⚠️ 记忆功能降级，返回空向量")
-                return [0.0] * 1024
-
-            except KeyError as e:
-                # 响应格式错误
-                logger.error(f"❌ OpenAI响应格式错误: {str(e)}")
-                logger.warning(f"⚠️ 记忆功能降级，返回空向量")
-                return [0.0] * 1024
-
-            except Exception as e:
-                # 其他所有异常
-                logger.error(f"❌ OpenAI embedding未知异常: {str(e)}")
-                logger.warning(f"⚠️ 记忆功能降级，返回空向量")
-                return [0.0] * 1024
-
-            response = self.client.embeddings.create(
-                model=self.embedding, input=text
-            )
-            return response.data[0].embedding
+        # if self.client == "DISABLED":
+        #     # 内存功能已禁用，返回空向量
+        #     logger.debug(f"⚠️ 记忆功能已禁用，返回空向量")
+        #     return [0.0] * 1024  # 返回1024维的零向量
+        #
+        # if (self.llm_provider == "dashscope" or
+        #     self.llm_provider == "alibaba" or
+        #     (self.llm_provider == "google" and self.client is None) or
+        #     (self.llm_provider == "deepseek" and self.client is None) or
+        #     (self.llm_provider == "openrouter" and self.client is None)):
+        #     # 使用阿里百炼的嵌入模型
+        #     try:
+        #         # 导入DashScope模块
+        #         import dashscope
+        #         from dashscope import TextEmbedding
+        #
+        #         # 检查DashScope API密钥是否可用
+        #         if not hasattr(dashscope, 'api_key') or not dashscope.api_key:
+        #             logger.warning(f"⚠️ DashScope API密钥未设置，记忆功能降级")
+        #             return [0.0] * 1024  # 返回空向量
+        #
+        #         # 尝试调用DashScope API
+        #         response = TextEmbedding.call(
+        #             model=self.embedding,
+        #             input=text
+        #         )
+        #
+        #         # 检查响应状态
+        #         if response.status_code == 200:
+        #             # 成功获取embedding
+        #             embedding = response.output['embeddings'][0]['embedding']
+        #             logger.debug(f"✅ DashScope embedding成功，维度: {len(embedding)}")
+        #             return embedding
+        #         else:
+        #             # API返回错误状态码
+        #             logger.error(f"❌ DashScope API错误: {response.code} - {response.message}")
+        #             logger.warning(f"⚠️ 记忆功能降级，返回空向量")
+        #             return [0.0] * 1024  # 返回空向量而不是抛出异常
+        #
+        #     except ImportError as e:
+        #         # dashscope包未安装
+        #         logger.error(f"❌ DashScope包未安装: {str(e)}")
+        #         logger.warning(f"⚠️ 记忆功能降级，返回空向量")
+        #         return [0.0] * 1024
+        #
+        #     except AttributeError as e:
+        #         # API调用方法不存在或参数错误
+        #         logger.error(f"❌ DashScope API调用错误: {str(e)}")
+        #         logger.warning(f"⚠️ 记忆功能降级，返回空向量")
+        #         return [0.0] * 1024
+        #
+        #     except ConnectionError as e:
+        #         # 网络连接错误
+        #         logger.error(f"❌ DashScope网络连接错误: {str(e)}")
+        #         logger.warning(f"⚠️ 记忆功能降级，返回空向量")
+        #         return [0.0] * 1024
+        #
+        #     except TimeoutError as e:
+        #         # 请求超时
+        #         logger.error(f"❌ DashScope请求超时: {str(e)}")
+        #         logger.warning(f"⚠️ 记忆功能降级，返回空向量")
+        #         return [0.0] * 1024
+        #
+        #     except KeyError as e:
+        #         # 响应格式错误
+        #         logger.error(f"❌ DashScope响应格式错误: {str(e)}")
+        #         logger.warning(f"⚠️ 记忆功能降级，返回空向量")
+        #         return [0.0] * 1024
+        #
+        #     except Exception as e:
+        #         # 其他所有异常
+        #         logger.error(f"❌ DashScope embedding未知异常: {str(e)}")
+        #         logger.warning(f"⚠️ 记忆功能降级，返回空向量")
+        #         return [0.0] * 1024  # 返回空向量而不是抛出异常
+        # else:
+        #     # 使用OpenAI兼容的嵌入模型
+        #     if self.client is None:
+        #         logger.warning(f"⚠️ 嵌入客户端未初始化，返回空向量")
+        #         return [0.0] * 1024  # 返回空向量
+        #     elif self.client == "DISABLED":
+        #         # 内存功能已禁用，返回空向量
+        #         logger.debug(f"⚠️ 内存功能已禁用，返回空向量")
+        #         return [0.0] * 1024  # 返回1024维的零向量
+        #
+        #     # 尝试调用OpenAI兼容的embedding API
+        #     try:
+        #         response = self.client.embeddings.create(
+        #             model=self.embedding,
+        #             input=text
+        #         )
+        #         embedding = response.data[0].embedding
+        #         logger.debug(f"✅ OpenAI embedding成功，维度: {len(embedding)}")
+        #         return embedding
+        #
+        #     except AttributeError as e:
+        #         # API调用方法不存在
+        #         logger.error(f"❌ OpenAI API调用错误: {str(e)}")
+        #         logger.warning(f"⚠️ 记忆功能降级，返回空向量")
+        #         return [0.0] * 1024
+        #
+        #     except ConnectionError as e:
+        #         # 网络连接错误
+        #         logger.error(f"❌ OpenAI网络连接错误: {str(e)}")
+        #         logger.warning(f"⚠️ 记忆功能降级，返回空向量")
+        #         return [0.0] * 1024
+        #
+        #     except TimeoutError as e:
+        #         # 请求超时
+        #         logger.error(f"❌ OpenAI请求超时: {str(e)}")
+        #         logger.warning(f"⚠️ 记忆功能降级，返回空向量")
+        #         return [0.0] * 1024
+        #
+        #     except KeyError as e:
+        #         # 响应格式错误
+        #         logger.error(f"❌ OpenAI响应格式错误: {str(e)}")
+        #         logger.warning(f"⚠️ 记忆功能降级，返回空向量")
+        #         return [0.0] * 1024
+        #
+        #     except Exception as e:
+        #         # 其他所有异常
+        #         logger.error(f"❌ OpenAI embedding未知异常: {str(e)}")
+        #         logger.warning(f"⚠️ 记忆功能降级，返回空向量")
+        #         return [0.0] * 1024
+        #
+        #     response = self.client.embeddings.create(
+        #         model=self.embedding, input=text
+        #     )
+        #     return response.data[0].embedding
 
     def add_situations(self, situations_and_advice):
         """Add financial situations and their corresponding advice. Parameter is a list of tuples (situation, rec)"""

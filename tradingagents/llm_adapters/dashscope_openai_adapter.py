@@ -10,6 +10,8 @@ from langchain_openai import ChatOpenAI
 from langchain_core.tools import BaseTool
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from pydantic import Field, SecretStr
+
+from tradingagents.default_config import DEFAULT_CONFIG
 from ..config.config_manager import token_tracker
 
 # 导入日志模块
@@ -26,11 +28,13 @@ class ChatDashScopeOpenAI(ChatOpenAI):
     
     def __init__(self, **kwargs):
         """初始化 DashScope OpenAI 兼容客户端"""
-        
+        llm_base_url = DEFAULT_CONFIG.get("llm_base_url")
+        llm_model_name = DEFAULT_CONFIG.get("llm_model_name")
+        llm_api_key = DEFAULT_CONFIG.get("llm_api_key")
         # 设置 DashScope OpenAI 兼容接口的默认配置
-        kwargs.setdefault("base_url", "https://dashscope.aliyuncs.com/compatible-mode/v1")
-        kwargs.setdefault("api_key", os.getenv("DASHSCOPE_API_KEY"))
-        kwargs.setdefault("model", "qwen-turbo")
+        kwargs.setdefault("base_url", llm_base_url)
+        kwargs.setdefault("api_key", llm_api_key)
+        kwargs.setdefault("model", llm_model_name)
         kwargs.setdefault("temperature", 0.1)
         kwargs.setdefault("max_tokens", 2000)
         
@@ -70,11 +74,11 @@ class ChatDashScopeOpenAI(ChatOpenAI):
                     # 生成会话ID
                     session_id = kwargs.get('session_id', f"dashscope_openai_{hash(str(args))%10000}")
                     analysis_type = kwargs.get('analysis_type', 'stock_analysis')
-                    
+                    llm_model_name = DEFAULT_CONFIG.get("llm_model_name")
                     # 使用 TokenTracker 记录使用量
                     token_tracker.track_usage(
                         provider="dashscope",
-                        model_name=self.model_name,
+                        model_name=llm_model_name,
                         input_tokens=input_tokens,
                         output_tokens=output_tokens,
                         session_id=session_id,

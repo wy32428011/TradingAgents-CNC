@@ -66,95 +66,130 @@ class TradingAgentsGraph:
         )
 
         # Initialize LLMs
-        if self.config["llm_provider"].lower() == "openai":
-            self.deep_thinking_llm = ChatOpenAI(model=self.config["deep_think_llm"], base_url=self.config["backend_url"])
-            self.quick_thinking_llm = ChatOpenAI(model=self.config["quick_think_llm"], base_url=self.config["backend_url"])
-        elif self.config["llm_provider"] == "openrouter":
-            # OpenRouter支持：优先使用OPENROUTER_API_KEY，否则使用OPENAI_API_KEY
-            openrouter_api_key = os.getenv('OPENROUTER_API_KEY') or os.getenv('OPENAI_API_KEY')
-            if not openrouter_api_key:
-                raise ValueError("使用OpenRouter需要设置OPENROUTER_API_KEY或OPENAI_API_KEY环境变量")
-
-            logger.info(f"🌐 [OpenRouter] 使用API密钥: {openrouter_api_key[:20]}...")
-
-            self.deep_thinking_llm = ChatOpenAI(
-                model=self.config["deep_think_llm"],
-                base_url=self.config["backend_url"],
-                api_key=openrouter_api_key
-            )
-            self.quick_thinking_llm = ChatOpenAI(
-                model=self.config["quick_think_llm"],
-                base_url=self.config["backend_url"],
-                api_key=openrouter_api_key
-            )
-        elif self.config["llm_provider"] == "ollama":
-            self.deep_thinking_llm = ChatOpenAI(model=self.config["deep_think_llm"], base_url=self.config["backend_url"])
-            self.quick_thinking_llm = ChatOpenAI(model=self.config["quick_think_llm"], base_url=self.config["backend_url"])
-        elif self.config["llm_provider"].lower() == "anthropic":
-            self.deep_thinking_llm = ChatAnthropic(model=self.config["deep_think_llm"], base_url=self.config["backend_url"])
-            self.quick_thinking_llm = ChatAnthropic(model=self.config["quick_think_llm"], base_url=self.config["backend_url"])
-        elif self.config["llm_provider"].lower() == "google":
-            google_api_key = os.getenv('GOOGLE_API_KEY')
-            self.deep_thinking_llm = ChatGoogleGenerativeAI(
-                model=self.config["deep_think_llm"],
-                google_api_key=google_api_key,
-                temperature=0.1,
-                max_tokens=2000
-            )
-            self.quick_thinking_llm = ChatGoogleGenerativeAI(
-                model=self.config["quick_think_llm"],
-                google_api_key=google_api_key,
-                temperature=0.1,
-                max_tokens=2000
-            )
-        elif (self.config["llm_provider"].lower() == "dashscope" or
-              self.config["llm_provider"].lower() == "alibaba" or
-              "dashscope" in self.config["llm_provider"].lower() or
-              "阿里百炼" in self.config["llm_provider"]):
-            # 使用 OpenAI 兼容适配器，支持原生 Function Calling
-            logger.info(f"🔧 使用阿里百炼 OpenAI 兼容适配器 (支持原生工具调用)")
-            self.deep_thinking_llm = ChatDashScopeOpenAI(
-                model=self.config["deep_think_llm"],
-                temperature=0.1,
-                max_tokens=2000
-            )
-            self.quick_thinking_llm = ChatDashScopeOpenAI(
-                model=self.config["quick_think_llm"],
-                temperature=0.1,
-                max_tokens=2000
-            )
-        elif (self.config["llm_provider"].lower() == "deepseek" or
-              "deepseek" in self.config["llm_provider"].lower()):
-            # DeepSeek V3配置 - 使用支持token统计的适配器
-            from tradingagents.llm_adapters.deepseek_adapter import ChatDeepSeek
-
-
-            deepseek_api_key = os.getenv('DEEPSEEK_API_KEY')
-            if not deepseek_api_key:
-                raise ValueError("使用DeepSeek需要设置DEEPSEEK_API_KEY环境变量")
-
-            deepseek_base_url = os.getenv('DEEPSEEK_BASE_URL', 'https://api.deepseek.com')
-
-            # 使用支持token统计的DeepSeek适配器
-            self.deep_thinking_llm = ChatDeepSeek(
-                model=self.config["deep_think_llm"],
-                api_key=deepseek_api_key,
-                base_url=deepseek_base_url,
-                temperature=0.1,
-                max_tokens=2000
-            )
-            self.quick_thinking_llm = ChatDeepSeek(
-                model=self.config["quick_think_llm"],
-                api_key=deepseek_api_key,
-                base_url=deepseek_base_url,
-                temperature=0.1,
-                max_tokens=2000
-                )
-
-            logger.info(f"✅ [DeepSeek] 已启用token统计功能")
-        else:
-            raise ValueError(f"Unsupported LLM provider: {self.config['llm_provider']}")
-        
+        # if self.config["llm_provider"].lower() == "openai":
+        #     self.deep_thinking_llm = ChatOpenAI(model=self.config["deep_think_llm"], base_url=self.config["backend_url"])
+        #     self.quick_thinking_llm = ChatOpenAI(model=self.config["quick_think_llm"], base_url=self.config["backend_url"])
+        # elif self.config["llm_provider"] == "openrouter":
+        #     # OpenRouter支持：优先使用OPENROUTER_API_KEY，否则使用OPENAI_API_KEY
+        #     openrouter_api_key = os.getenv('OPENROUTER_API_KEY') or os.getenv('OPENAI_API_KEY')
+        #     if not openrouter_api_key:
+        #         raise ValueError("使用OpenRouter需要设置OPENROUTER_API_KEY或OPENAI_API_KEY环境变量")
+        #
+        #     logger.info(f"🌐 [OpenRouter] 使用API密钥: {openrouter_api_key[:20]}...")
+        #
+        #     self.deep_thinking_llm = ChatOpenAI(
+        #         model=self.config["deep_think_llm"],
+        #         base_url=self.config["backend_url"],
+        #         api_key=openrouter_api_key
+        #     )
+        #     self.quick_thinking_llm = ChatOpenAI(
+        #         model=self.config["quick_think_llm"],
+        #         base_url=self.config["backend_url"],
+        #         api_key=openrouter_api_key
+        #     )
+        # elif self.config["llm_provider"] == "ollama":
+        #     self.deep_thinking_llm = ChatOpenAI(model=self.config["deep_think_llm"], base_url=self.config["backend_url"])
+        #     self.quick_thinking_llm = ChatOpenAI(model=self.config["quick_think_llm"], base_url=self.config["backend_url"])
+        # elif self.config["llm_provider"].lower() == "anthropic":
+        #     self.deep_thinking_llm = ChatAnthropic(model=self.config["deep_think_llm"], base_url=self.config["backend_url"])
+        #     self.quick_thinking_llm = ChatAnthropic(model=self.config["quick_think_llm"], base_url=self.config["backend_url"])
+        # elif self.config["llm_provider"].lower() == "google":
+        #     google_api_key = os.getenv('GOOGLE_API_KEY')
+        #     self.deep_thinking_llm = ChatGoogleGenerativeAI(
+        #         model=self.config["deep_think_llm"],
+        #         google_api_key=google_api_key,
+        #         temperature=0.1,
+        #         max_tokens=2000
+        #     )
+        #     self.quick_thinking_llm = ChatGoogleGenerativeAI(
+        #         model=self.config["quick_think_llm"],
+        #         google_api_key=google_api_key,
+        #         temperature=0.1,
+        #         max_tokens=2000
+        #     )
+        # elif (self.config["llm_provider"].lower() == "dashscope" or
+        #       self.config["llm_provider"].lower() == "alibaba" or
+        #       "dashscope" in self.config["llm_provider"].lower() or
+        #       "阿里百炼" in self.config["llm_provider"]):
+        #     # 使用 OpenAI 兼容适配器，支持原生 Function Calling
+        #     logger.info(f"🔧 使用阿里百炼 OpenAI 兼容适配器 (支持原生工具调用)")
+        #     self.deep_thinking_llm = ChatDashScopeOpenAI(
+        #         model=self.config["deep_think_llm"],
+        #         temperature=0.1,
+        #         max_tokens=2000
+        #     )
+        #     self.quick_thinking_llm = ChatDashScopeOpenAI(
+        #         model=self.config["quick_think_llm"],
+        #         temperature=0.1,
+        #         max_tokens=2000
+        #     )
+        # elif (self.config["llm_provider"].lower() == "deepseek" or
+        #       "deepseek" in self.config["llm_provider"].lower()):
+        #     # DeepSeek V3配置 - 使用支持token统计的适配器
+        #     from tradingagents.llm_adapters.deepseek_adapter import ChatDeepSeek
+        #
+        #
+        #     deepseek_api_key = os.getenv('DEEPSEEK_API_KEY')
+        #     if not deepseek_api_key:
+        #         raise ValueError("使用DeepSeek需要设置DEEPSEEK_API_KEY环境变量")
+        #
+        #     deepseek_base_url = os.getenv('DEEPSEEK_BASE_URL', 'https://api.deepseek.com')
+        #
+        #     # 使用支持token统计的DeepSeek适配器
+        #     self.deep_thinking_llm = ChatDeepSeek(
+        #         model=self.config["deep_think_llm"],
+        #         api_key=deepseek_api_key,
+        #         base_url=deepseek_base_url,
+        #         temperature=0.1,
+        #         max_tokens=2000
+        #     )
+        #     self.quick_thinking_llm = ChatDeepSeek(
+        #         model=self.config["quick_think_llm"],
+        #         api_key=deepseek_api_key,
+        #         base_url=deepseek_base_url,
+        #         temperature=0.1,
+        #         max_tokens=2000
+        #         )
+        #     llm_base_url = self.config["llm_base_url"]
+        #     llm_model_name = self.config["llm_model_name"]
+        #     llm_api_key = self.config["llm_api_key"]
+        #     print("[llm_base_url]---->", llm_base_url)
+        #     self.react_llm = ChatOpenAI(
+        #         base_url=llm_base_url,
+        #         model=llm_model_name,  # 需与vLLM加载的模型名一致
+        #         temperature=0.3,
+        #         max_tokens=20480,
+        #         api_key=llm_api_key
+        #     )
+        #     logger.info(f"✅ [DeepSeek] 已启用token统计功能")
+        # else:
+        #     raise ValueError(f"Unsupported LLM provider: {self.config['llm_provider']}")
+        llm_base_url = self.config["llm_base_url"]
+        llm_model_name = self.config["llm_model_name"]
+        llm_api_key = self.config["llm_api_key"]
+        self.deep_thinking_llm = ChatOpenAI(
+            base_url=llm_base_url,
+            model=llm_model_name,  # 需与vLLM加载的模型名一致
+            temperature=0.3,
+            max_tokens=20480,
+            api_key=llm_api_key
+        )
+        self.quick_thinking_llm = ChatOpenAI(
+            base_url=llm_base_url,
+            model=llm_model_name,  # 需与vLLM加载的模型名一致
+            temperature=0.3,
+            max_tokens=20480,
+            api_key=llm_api_key
+        )
+        print("[llm_base_url]---->", llm_base_url)
+        # print("[llm_base_url]---->", llm_base_url)
+        # self.react_llm = ChatOpenAI(
+        #     base_url=llm_base_url,
+        #     model=llm_model_name,  # 需与vLLM加载的模型名一致
+        #     temperature=0.3,
+        #     max_tokens=20480,
+        #     api_key=llm_api_key
+        # )
         self.toolkit = Toolkit(config=self.config)
 
         # Initialize memories (如果启用)

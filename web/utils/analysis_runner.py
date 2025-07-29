@@ -195,7 +195,11 @@ def run_stock_analysis(stock_symbol, analysis_date, analysts, research_depth, ll
     if TOKEN_TRACKING_ENABLED:
         estimated_input = 2000 * len(analysts)  # 估算每个分析师2000个输入token
         estimated_output = 1000 * len(analysts)  # 估算每个分析师1000个输出token
-        estimated_cost = token_tracker.estimate_cost(llm_provider, llm_model, estimated_input, estimated_output)
+        # 本地模型成本为零
+        if llm_provider == 'local':
+            estimated_cost = 0.0
+        else:
+            estimated_cost = token_tracker.estimate_cost(llm_provider, llm_model, estimated_input, estimated_output)
 
         update_progress(f"💰 预估分析成本: ¥{estimated_cost:.4f}")
 
@@ -208,7 +212,8 @@ def run_stock_analysis(stock_symbol, analysis_date, analysts, research_depth, ll
     logger.info(f"  DASHSCOPE_API_KEY: {'已设置' if dashscope_key else '未设置'}")
     logger.info(f"  FINNHUB_API_KEY: {'已设置' if finnhub_key else '未设置'}")
 
-    if not dashscope_key:
+    # 本地模型不需要检查DASHSCOPE_API_KEY
+    if llm_provider != 'local' and not dashscope_key:
         raise ValueError("DASHSCOPE_API_KEY 环境变量未设置")
     if not finnhub_key:
         raise ValueError("FINNHUB_API_KEY 环境变量未设置")
@@ -288,18 +293,18 @@ def run_stock_analysis(stock_symbol, analysis_date, analysts, research_depth, ll
                 config["deep_think_llm"] = "deepseek-chat"
 
         # 根据LLM提供商设置不同的配置
-        if llm_provider == "dashscope":
-            config["backend_url"] = "https://dashscope.aliyuncs.com/api/v1"
-        elif llm_provider == "deepseek":
-            config["backend_url"] = "https://api.deepseek.com"
-        elif llm_provider == "google":
-            # Google AI不需要backend_url，使用默认的OpenAI格式
-            config["backend_url"] = "https://api.openai.com/v1"
-        elif llm_provider == "openrouter":
-            # OpenRouter使用OpenAI兼容API
-            config["backend_url"] = "https://openrouter.ai/api/v1"
-            logger.info(f"🌐 [OpenRouter] 使用模型: {llm_model}")
-            logger.info(f"🌐 [OpenRouter] API端点: https://openrouter.ai/api/v1")
+        # if llm_provider == "dashscope":
+        #     config["backend_url"] = "https://dashscope.aliyuncs.com/api/v1"
+        # elif llm_provider == "deepseek":
+        #     config["backend_url"] = "https://api.deepseek.com"
+        # elif llm_provider == "google":
+        #     # Google AI不需要backend_url，使用默认的OpenAI格式
+        #     config["backend_url"] = "https://api.openai.com/v1"
+        # elif llm_provider == "openrouter":
+        #     # OpenRouter使用OpenAI兼容API
+        #     config["backend_url"] = "https://openrouter.ai/api/v1"
+        #     logger.info(f"🌐 [OpenRouter] 使用模型: {llm_model}")
+        #     logger.info(f"🌐 [OpenRouter] API端点: https://openrouter.ai/api/v1")
 
         # 修复路径问题 - 优先使用环境变量配置
         # 数据目录：优先使用环境变量，否则使用默认路径
@@ -409,23 +414,23 @@ def run_stock_analysis(stock_symbol, analysis_date, analysts, research_depth, ll
             state['risk_assessment'] = risk_assessment
 
         # 记录Token使用（实际使用量，这里使用估算值）
-        if TOKEN_TRACKING_ENABLED:
-            # 在实际应用中，这些值应该从LLM响应中获取
-            # 这里使用基于分析师数量和研究深度的估算
-            actual_input_tokens = len(analysts) * (1500 if research_depth == "快速" else 2500 if research_depth == "标准" else 4000)
-            actual_output_tokens = len(analysts) * (800 if research_depth == "快速" else 1200 if research_depth == "标准" else 2000)
-
-            usage_record = token_tracker.track_usage(
-                provider=llm_provider,
-                model_name=llm_model,
-                input_tokens=actual_input_tokens,
-                output_tokens=actual_output_tokens,
-                session_id=session_id,
-                analysis_type=f"{market_type}_analysis"
-            )
-
-            if usage_record:
-                update_progress(f"💰 记录使用成本: ¥{usage_record.cost:.4f}")
+        # if TOKEN_TRACKING_ENABLED:
+        #     # 在实际应用中，这些值应该从LLM响应中获取
+        #     # 这里使用基于分析师数量和研究深度的估算
+        #     actual_input_tokens = len(analysts) * (1500 if research_depth == "快速" else 2500 if research_depth == "标准" else 4000)
+        #     actual_output_tokens = len(analysts) * (800 if research_depth == "快速" else 1200 if research_depth == "标准" else 2000)
+        #
+        #     usage_record = token_tracker.track_usage(
+        #         provider=llm_provider,
+        #         model_name=llm_model,
+        #         input_tokens=actual_input_tokens,
+        #         output_tokens=actual_output_tokens,
+        #         session_id=session_id,
+        #         analysis_type=f"{market_type}_analysis"
+        #     )
+        #
+        #     if usage_record:
+        #         update_progress(f"💰 记录使用成本: ¥{usage_record.cost:.4f}")
 
         results = {
             'stock_symbol': stock_symbol,

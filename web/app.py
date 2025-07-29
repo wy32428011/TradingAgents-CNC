@@ -12,6 +12,7 @@ import datetime
 import time
 from dotenv import load_dotenv
 
+from tradingagents.default_config import DEFAULT_CONFIG
 # 导入日志模块
 from tradingagents.utils.logging_manager import get_logger
 logger = get_logger('web')
@@ -622,7 +623,9 @@ def main():
     
     # 渲染侧边栏
     config = render_sidebar()
-    
+    # config['llm_provider']= DEFAULT_CONFIG.get("llm_provider")
+    config['llm_model']= DEFAULT_CONFIG.get("llm_model_name")
+
     # 添加使用指南显示切换
     show_guide = st.sidebar.checkbox("📖 显示使用指南", value=True, help="显示/隐藏右侧使用指南")
 
