@@ -11,7 +11,7 @@ from pathlib import Path
 import datetime
 import time
 from dotenv import load_dotenv
-
+os.environ["LANGCHAIN_API_KEY"] = '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'
 from tradingagents.default_config import DEFAULT_CONFIG
 # 导入日志模块
 from tradingagents.utils.logging_manager import get_logger
